@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trascrittore Riunioni</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #EFEDE8;
+  --surface: #FAFAF8;
+  --surface2: #E8E5DF;
+  --border: rgba(0,0,0,.10);
+  --border-med: rgba(0,0,0,.16);
+  --text: #181714;
+  --muted: #6E6C65;
+  --faint: #AAA89F;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --accent: #2B5BE0;
+  --danger: #C0390E;
+  --success: #0F8A5F;
+  --warn: #A05C00;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+.hd{background:var(--text);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;position:sticky;top:0;z-index:100}
+.hd-left{display:flex;align-items:center;gap:10px}
+.hd-logo{width:26px;height:26px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center}
+.hd-logo span{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--text)}
+.hd-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff;letter-spacing:.02em}
+.hd-right{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.35)}
+
+.key-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 1.5rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.key-bar label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.key-input{flex:1;min-width:200px;max-width:360px;padding:6px 11px;border:1px solid var(--border-med);border-radius:var(--radius-sm);font-family:'DM Mono',monospace;font-size:12px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s}
+.key-input:focus{border-color:var(--accent)}
+.key-status{font-size:11px;color:var(--faint)}
+.key-status.ok{color:var(--success)}
+.key-status.err{color:var(--danger)}
+.btn-key-save{padding:5px 12px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s}
+.btn-key-save:hover{opacity:.85}
+
+.main{flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1rem;max-width:900px;margin:0 auto;width:100%}
+
+.drop-zone{background:var(--surface);border:2px dashed var(--border-med);border-radius:var(--radius);padding:3rem 2rem;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:#EEF2FC}
+.drop-zone.has-file{border-style:solid;border-color:var(--accent);background:#EEF2FC}
+.drop-ico{font-size:36px;margin-bottom:.75rem;display:block}
+.drop-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:.4rem}
+.drop-sub{font-size:12px;color:var(--muted)}
+.drop-sub2{font-size:11px;color:var(--faint);margin-top:.3rem}
+.drop-file-info{margin-top:.75rem;padding:.5rem 1rem;background:rgba(43,91,224,.08);border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:.5rem;font-size:12px;color:var(--accent);font-weight:500}
+#file-input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* Queue list */
+.queue-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:none}
+.queue-wrap.show{display:block}
+.queue-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.queue-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.queue-list{max-height:220px;overflow-y:auto}
+.queue-item{padding:.6rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem;font-size:12px}
+.queue-item:last-child{border-bottom:none}
+.queue-item-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.queue-item-size{font-family:'DM Mono',monospace;font-size:11px;color:var(--faint);white-space:nowrap}
+.queue-item-status{font-size:11px;white-space:nowrap;padding:2px 7px;border-radius:4px}
+.queue-item-status.pending{color:var(--muted);background:var(--surface2)}
+.queue-item-status.active{color:var(--accent);background:#EEF2FC}
+.queue-item-status.done{color:var(--success);background:#E8F7F2}
+.queue-item-status.error{color:var(--danger);background:#FEF0EE}
+.queue-del{padding:3px 7px;border-radius:4px;border:none;background:transparent;cursor:pointer;font-size:11px;color:var(--faint);transition:all .12s}
+.queue-del:hover{background:var(--danger);color:#fff}
+
+.options-row{display:flex;gap:1rem;flex-wrap:wrap}
+.opt-card{flex:1;min-width:140px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem}
+.opt-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem}
+.opt-select{width:100%;padding:5px 8px;border:1px solid var(--border-med);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;cursor:pointer}
+.opt-select:focus{border-color:var(--accent)}
+
+.btn-transcribe{width:100%;padding:14px;border-radius:var(--radius);background:var(--accent);color:#fff;border:none;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.02em}
+.btn-transcribe:hover:not(:disabled){opacity:.88;transform:translateY(-1px)}
+.btn-transcribe:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+.progress-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;display:none}
+.progress-wrap.show{display:block}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem}
+.prog-label{font-weight:600;font-size:13px}
+.prog-pct{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)}
+.prog-bar-bg{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.prog-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease;width:0}
+.prog-steps{margin-top:.75rem;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto}
+.prog-step{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.prog-step::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--faint);flex-shrink:0}
+.prog-step.done::before{background:var(--success)}
+.prog-step.active::before{background:var(--accent);animation:pulse 1s infinite}
+.prog-step.warn::before{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.result-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:none;flex-direction:column;overflow:hidden}
+.result-wrap.show{display:flex}
+.result-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.result-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.result-meta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.result-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn-action{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;border:1px solid var(--border-med);background:var(--bg);color:var(--text)}
+.btn-action:hover{background:var(--text);color:#fff;border-color:var(--text)}
+.btn-action.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-action.primary:hover{opacity:.85}
+.btn-action.success{background:var(--success);color:#fff;border-color:var(--success)}
+.btn-action.success:hover{opacity:.85}
+.btn-action.drive{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.btn-action.drive:hover{opacity:.85}
+.btn-action:disabled{opacity:.6;cursor:not-allowed}
+.result-body{padding:1.25rem;font-size:13px;line-height:1.75;color:var(--text);word-break:break-word;max-height:500px;overflow-y:auto;background:var(--bg)}
+.result-body::-webkit-scrollbar{width:4px}
+.result-body::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:2px}
+.result-tabs{display:flex;gap:4px;padding:.75rem 1.25rem .5rem;border-bottom:1px solid var(--border);background:var(--surface)}
+.rtab{padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;border:1px solid var(--border-med);background:var(--bg);color:var(--muted);transition:all .15s}
+.rtab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rtab:hover:not(.active){background:var(--surface2)}
+.rtab-panel{padding:1.25rem;font-size:13px;line-height:1.75;color:var(--text);word-break:break-word}
+.rtab-panel.hidden{display:none}
+
+.error-box{background:#FEF0EE;border:1px solid #F5C4B8;border-radius:var(--radius-sm);padding:.875rem 1rem;font-size:12px;color:#8B3020;display:none}
+.error-box.show{display:block}
+
+.info-box{background:#FFF8EC;border:1px solid #F5DFA0;border-radius:var(--radius-sm);padding:.75rem 1rem;font-size:12px;color:var(--warn);display:none}
+.info-box.show{display:block}
+
+.hist-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:none}
+.hist-wrap.show{display:block}
+.hist-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.hist-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.hist-list{max-height:260px;overflow-y:auto}
+.hist-item{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:.75rem}
+.hist-item:last-child{border-bottom:none}
+.hist-item:hover{background:var(--bg)}
+.hist-item-info{flex:1;min-width:0}
+.hist-item-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item-meta{font-size:10px;color:var(--faint);font-family:'DM Mono',monospace;margin-top:2px}
+.hist-item-preview{font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.hist-del{opacity:0;padding:3px 7px;border-radius:4px;border:none;background:transparent;cursor:pointer;font-size:11px;color:var(--muted);transition:all .12s}
+.hist-item:hover .hist-del{opacity:1}
+.hist-del:hover{background:var(--danger);color:#fff}
+
+footer{padding:.75rem 1.5rem;background:var(--surface);border-top:1px solid var(--border);font-size:10px;color:var(--faint);font-family:'DM Mono',monospace;text-align:center}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="hd-left">
+    <div class="hd-logo"><span>TR</span></div>
+    <span class="hd-title">Trascrittore Riunioni</span>
+  </div>
+  <div class="hd-right" id="hd-date"></div>
+</header>
+
+<div class="key-bar">
+  <label>API Key Groq</label>
+  <input class="key-input" type="password" id="groq-key" placeholder="gsk_…" autocomplete="off">
+  <button class="btn-key-save" onclick="saveGroqKey()">Salva</button>
+  <span class="key-status" id="groq-key-status">Non configurata</span>
+  <span style="color:var(--border-med);margin:0 4px">|</span>
+  <label>API Key Anthropic</label>
+  <input class="key-input" type="password" id="anthropic-key" placeholder="sk-ant-…" autocomplete="off">
+  <button class="btn-key-save" onclick="saveAnthropicKey()">Salva</button>
+  <span class="key-status" id="anthropic-key-status">Non configurata</span>
+</div>
+
+<div class="main">
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept="audio/*,video/*,.wav,.mp3,.mp4,.m4a,.webm,.ogg,.flac,.aac,.zip" multiple onchange="onFilesSelected(this.files)">
+    <span class="drop-ico">🎙️</span>
+    <div class="drop-title">Trascina qui i file audio</div>
+    <div class="drop-sub">WAV, MP3, M4A, MP4, OGG, FLAC, AAC · qualsiasi durata · convertito automaticamente</div>
+    <div class="drop-sub2">Puoi selezionare più file contemporaneamente, o caricare uno ZIP con tutti i file audio</div>
+    <div class="drop-file-info" id="file-info" style="display:none"></div>
+  </div>
+
+  <!-- Coda file -->
+  <div class="queue-wrap" id="queue-wrap">
+    <div class="queue-header">
+      <span class="queue-title" id="queue-title">File in coda</span>
+      <button class="btn-action" onclick="clearQueue()" style="font-size:10px">Svuota coda</button>
+    </div>
+    <div class="queue-list" id="queue-list"></div>
+  </div>
+
+  <div class="options-row">
+    <div class="opt-card">
+      <div class="opt-label">Lingua audio</div>
+      <select class="opt-select" id="opt-lang">
+        <option value="it">🇮🇹 Italiano</option>
+        <option value="en">🇬🇧 English</option>
+        <option value="">🌍 Auto-detect</option>
+      </select>
+    </div>
+    <div class="opt-card">
+      <div class="opt-label">Modello trascrizione</div>
+      <select class="opt-select" id="opt-model">
+        <option value="groq-turbo" selected>Groq Turbo — gratuito ⭐</option>
+        <option value="groq-v3">Groq Large v3 — gratuito, qualità max</option>
+      </select>
+    </div>
+    <div class="opt-card">
+      <div class="opt-label">Formato output</div>
+      <select class="opt-select" id="opt-fmt">
+        <option value="text">Testo semplice</option>
+        <option value="srt">SRT (con timestamp)</option>
+      </select>
+    </div>
+    <div class="opt-card">
+      <div class="opt-label">Qualità MP3</div>
+      <select class="opt-select" id="opt-bitrate">
+        <option value="64">64 kbps — voce (file piccoli)</option>
+        <option value="128" selected>128 kbps — bilanciato</option>
+        <option value="192">192 kbps — alta qualità</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn-transcribe" id="btn-go" onclick="startQueue()" disabled>
+    ▶ Avvia trascrizione
+  </button>
+
+  <div class="info-box" id="info-box"></div>
+  <div class="error-box" id="error-box"></div>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="prog-header">
+      <span class="prog-label" id="prog-label">Preparazione…</span>
+      <span class="prog-pct" id="prog-pct">0%</span>
+    </div>
+    <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill"></div></div>
+    <div class="prog-steps" id="prog-steps"></div>
+  </div>
+
+  <div class="result-wrap" id="result-wrap">
+    <div class="result-header">
+      <div>
+        <div class="result-title" id="result-title">Trascrizione</div>
+        <div class="result-meta" id="result-meta"></div>
+      </div>
+      <div class="result-actions" id="result-actions">
+        <button class="btn-action" onclick="copyResult()">📋 Copia</button>
+        <button class="btn-action primary" onclick="downloadResult()">↓ Scarica .txt</button>
+      </div>
+    </div>
+    <div class="result-body" id="result-body"></div>
+  </div>
+
+  <div class="hist-wrap" id="hist-wrap">
+    <div class="hist-header">
+      <span class="hist-title">Trascrizioni salvate</span>
+      <button class="btn-action" onclick="clearHistory()" style="font-size:10px">Elimina tutto</button>
+    </div>
+    <div class="hist-list" id="hist-list"></div>
+  </div>
+
+</div>
+
+<footer>Trascrizione via Groq Whisper (gratuito) · Verbale via Anthropic Claude · Le API key restano nel browser · Nessun dato trasmesso a terzi</footer>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────
+let fileQueue    = [];   // array of { file, name, status, result, error }
+let resultText        = '';
+let resultFname       = '';
+let resultVerbale     = '';
+let resultVerbaleFname = '';
+let batchResults = [];   // { name, text } per ogni file completato
+
+// ── GOOGLE DRIVE CONFIG ───────────────────────────────────────────────
+const GDRIVE_CLIENT_ID  = '469606850988-1stu0gq904bhqqne1s6jnhqd1tsiud6u.apps.googleusercontent.com';
+const GDRIVE_FOLDER_ID  = '16y6a_1Ga96RjTx9ja98jdZuRqGL7-eSe';
+const GDRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
+let   gdriveToken       = null;   // access token dopo login
+
+function loadGoogleIdentity() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error('Impossibile caricare Google Identity Services'));
+    document.head.appendChild(s);
+  });
+}
+
+async function getGdriveToken() {
+  if (gdriveToken) return gdriveToken;
+  await loadGoogleIdentity();
+  return new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        gdriveToken = resp.access_token;
+        resolve(gdriveToken);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function uploadToDrive(filename, content, mimeType = 'text/plain') {
+  const token = await getGdriveToken();
+  const meta  = { name: filename, parents: [GDRIVE_FOLDER_ID] };
+  const form  = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  form.append('file',     new Blob([content], { type: mimeType }));
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: form
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    // token scaduto → reset e riprova una volta
+    if (res.status === 401) {
+      gdriveToken = null;
+      return uploadToDrive(filename, content, mimeType);
+    }
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function saveSingleToDrive(btn) {
+  if (!resultText) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvataggio…';
+  try {
+    const promises = [uploadToDrive(resultFname, resultText)];
+    if (resultVerbale) promises.push(uploadToDrive(resultVerbaleFname, resultVerbale));
+    await Promise.all(promises);
+    btn.textContent = '✅ Salvato su Drive!';
+    setTimeout(() => { btn.textContent = '☁️ Salva su Drive'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    btn.textContent = '❌ Errore';
+    btn.disabled = false;
+    showError('Errore Google Drive: ' + e.message);
+  }
+}
+
+async function saveBatchToDrive(btn) {
+  if (!batchResults.length) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvataggio…';
+  try {
+    // pre-fetch token una volta sola
+    await getGdriveToken();
+    let count = 0;
+    for (const r of batchResults) {
+      const base = r.name.replace(/\.[^.]+$/, '');
+      await uploadToDrive(base + '_trascrizione.txt', r.text);
+      count++;
+      if (r.verbale) {
+        await uploadToDrive(base + '_verbale.txt', r.verbale);
+        count++;
+      }
+      btn.textContent = `⏳ ${count} file…`;
+    }
+    btn.textContent = `✅ ${count} file salvati!`;
+    setTimeout(() => { btn.textContent = '☁️ Salva tutto su Drive'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    btn.textContent = '❌ Errore';
+    btn.disabled = false;
+    showError('Errore Google Drive: ' + e.message);
+  }
+}
+
+const $ = id => document.getElementById(id);
+
+// ── INIT ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  $('hd-date').textContent = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  loadKey();
+  renderHistory();
+  setupDrop();
+});
+
+// ── API KEYS ──────────────────────────────────────────────────────────
+function saveGroqKey() {
+  const v = $('groq-key').value.trim();
+  if (!v.startsWith('gsk_')) { showStatus('groq-key-status', 'Formato non valido (deve iniziare con gsk_)', 'err'); return; }
+  try { localStorage.setItem('groq_key', v); } catch {}
+  showStatus('groq-key-status', '✓ Salvata nel browser', 'ok');
+  updateBtn();
+}
+function saveAnthropicKey() {
+  const v = $('anthropic-key').value.trim();
+  if (!v.startsWith('sk-ant-')) { showStatus('anthropic-key-status', 'Formato non valido (deve iniziare con sk-ant-)', 'err'); return; }
+  try { localStorage.setItem('anthropic_key', v); } catch {}
+  showStatus('anthropic-key-status', '✓ Salvata nel browser', 'ok');
+  updateBtn();
+}
+function loadKey() {
+  try {
+    const gk = localStorage.getItem('groq_key')||'';
+    if (gk) { $('groq-key').value = gk; showStatus('groq-key-status', '✓ Caricata dal browser', 'ok'); }
+    const ak = localStorage.getItem('anthropic_key')||'';
+    if (ak) { $('anthropic-key').value = ak; showStatus('anthropic-key-status', '✓ Caricata dal browser', 'ok'); }
+    updateBtn();
+  } catch {}
+}
+function getGroqKey() {
+  const v = $('groq-key').value.trim();
+  return v || (()=>{ try{return localStorage.getItem('groq_key')||''}catch{return ''} })();
+}
+function getAnthropicKey() {
+  const v = $('anthropic-key').value.trim();
+  return v || (()=>{ try{return localStorage.getItem('anthropic_key')||''}catch{return ''} })();
+}
+// Legacy: kept for any residual calls
+function getKey() { return getGroqKey(); }
+function showStatus(id, msg, cls) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'key-status' + (cls ? ' '+cls : '');
+}
+function showKeyStatus(msg, cls) { showStatus('groq-key-status', msg, cls); }
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────
+function setupDrop() {
+  const dz = $('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    onFilesSelected(e.dataTransfer.files);
+  });
+}
+
+async function onFilesSelected(files) {
+  if (!files || !files.length) return;
+  hideError(); hideInfo();
+
+  for (const file of Array.from(files)) {
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      await extractZip(file);
+    } else if (isAudioFile(file)) {
+      addToQueue(file);
+    }
+  }
+  renderQueue();
+  updateBtn();
+}
+
+function isAudioFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const audioExts = ['wav','mp3','mp4','m4a','webm','ogg','flac','aac','wma','opus','mpeg'];
+  return audioExts.includes(ext) || file.type.startsWith('audio/') || file.type.startsWith('video/');
+}
+
+function addToQueue(file, nameOverride) {
+  const name = nameOverride || file.name;
+  // avoid duplicates
+  if (fileQueue.find(q => q.name === name)) return;
+  fileQueue.push({ file, name, status: 'pending', result: null, error: null });
+}
+
+function clearQueue() {
+  fileQueue = [];
+  renderQueue();
+  updateBtn();
+  const dz = $('drop-zone');
+  dz.classList.remove('has-file');
+  $('file-info').style.display = 'none';
+}
+
+function removeFromQueue(idx) {
+  fileQueue.splice(idx, 1);
+  renderQueue();
+  updateBtn();
+}
+
+function renderQueue() {
+  const wrap = $('queue-wrap');
+  if (!fileQueue.length) { wrap.classList.remove('show'); return; }
+  wrap.classList.add('show');
+
+  const n = fileQueue.length;
+  $('queue-title').textContent = `${n} file in coda`;
+
+  // Update drop zone indicator
+  const dz = $('drop-zone');
+  dz.classList.add('has-file');
+  const info = $('file-info');
+  info.style.display = 'inline-flex';
+  info.textContent = `📂 ${n} file selezionat${n===1?'o':'i'}`;
+
+  const statusLabel = { pending:'In attesa', active:'In corso…', done:'✓ Completato', error:'✕ Errore' };
+  $('queue-list').innerHTML = fileQueue.map((q, i) => `
+    <div class="queue-item">
+      <span class="queue-item-name">${escH(q.name)}</span>
+      <span class="queue-item-size">${formatBytes(q.file.size)}</span>
+      <span class="queue-item-status ${q.status}">${statusLabel[q.status]||q.status}</span>
+      ${q.status==='pending' ? `<button class="queue-del" onclick="removeFromQueue(${i})">✕</button>` : ''}
+    </div>`).join('');
+}
+
+// ── ZIP EXTRACTION ────────────────────────────────────────────────────
+async function loadJSZip() {
+  if (window.JSZip) return window.JSZip;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    s.onload = () => resolve(window.JSZip);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function extractZip(zipFile) {
+  try {
+    showInfo(`Estrazione ZIP "${zipFile.name}"…`);
+    const JSZip = await loadJSZip();
+    const zip   = await JSZip.loadAsync(zipFile);
+    let count   = 0;
+    const audioExts = ['wav','mp3','mp4','m4a','webm','ogg','flac','aac','wma','opus'];
+    for (const [path, entry] of Object.entries(zip.files)) {
+      if (entry.dir) continue;
+      const ext = path.split('.').pop().toLowerCase();
+      if (!audioExts.includes(ext)) continue;
+      const blob = await entry.async('blob');
+      const fname = path.split('/').pop(); // filename only, ignore subfolders
+      const file = new File([blob], fname, { type: blob.type || 'audio/mpeg' });
+      addToQueue(file, fname);
+      count++;
+    }
+    if (count === 0) {
+      showError(`Nessun file audio trovato nello ZIP "${zipFile.name}".`);
+    } else {
+      hideInfo();
+    }
+  } catch(e) {
+    showError(`Errore apertura ZIP: ${e.message}`);
+  }
+}
+
+function formatBytes(b) {
+  if (b >= 1e9) return (b/1e9).toFixed(1)+' GB';
+  if (b >= 1e6) return (b/1e6).toFixed(1)+' MB';
+  return (b/1024).toFixed(0)+' KB';
+}
+function updateBtn() {
+  const hasPending = fileQueue.some(q => q.status === 'pending');
+  $('btn-go').disabled = !(hasPending && getGroqKey());
+}
+
+// ── MP3 ENCODER ───────────────────────────────────────────────────────
+async function loadLame() {
+  if (window.lamejs) return window.lamejs;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+    s.onload = () => resolve(window.lamejs);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function convertToMp3Chunks(file, bitrateKbps, chunkSizeBytes, onStep) {
+  // Se è già MP3 (o M4A/AAC) e sta sotto il limite, mandalo diretto senza ricodificare
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (['mp3','m4a','aac'].includes(ext) && file.size <= chunkSizeBytes) {
+    onStep(`File già in formato ${ext.toUpperCase()}, nessuna conversione necessaria`, 'done');
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    return [new File([file], `${baseName}.mp3`, { type: 'audio/mpeg' })];
+  }
+  // Se è MP3/M4A/AAC grande, splitta direttamente senza ricodificare
+  if (['mp3','m4a','aac'].includes(ext) && file.size > chunkSizeBytes) {
+    onStep(`File ${ext.toUpperCase()} grande, divisione diretta…`, 'done');
+    const chunks = [];
+    let off = 0;
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    while (off < file.size) {
+      const slice = file.slice(off, off + chunkSizeBytes);
+      chunks.push(new File([slice], `${baseName}_part${String(chunks.length+1).padStart(3,'0')}.mp3`, { type: 'audio/mpeg' }));
+      off += chunkSizeBytes;
+    }
+    onStep(`Diviso in ${chunks.length} parti`, 'done');
+    return chunks;
+  }
+
+  onStep('Caricamento encoder MP3…', 'active', 'lame-step');
+  let lame;
+  try {
+    lame = await loadLame();
+  } catch(e) {
+    throw new Error('Impossibile caricare encoder MP3. Controlla la connessione internet.');
+  }
+  markStep('lame-step', 'done');
+
+  onStep('Decodifica audio nel browser…', 'active', 'decode-step');
+  const arrayBuf = await file.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let audioBuffer;
+  try {
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+  } catch(e) {
+    throw new Error('Formato audio non riconosciuto. Prova a convertire il file in MP3 manualmente.');
+  }
+  audioCtx.close();
+  markStep('decode-step', 'done');
+
+  const sampleRate  = audioBuffer.sampleRate;
+  const numChannels = Math.min(audioBuffer.numberOfChannels, 2);
+  const leftChannel  = audioBuffer.getChannelData(0);
+  const rightChannel = numChannels > 1 ? audioBuffer.getChannelData(1) : leftChannel;
+  const totalSamples = leftChannel.length;
+  const durationMin  = (totalSamples / sampleRate / 60).toFixed(1);
+
+  onStep(`Audio: ${durationMin} min · ${sampleRate}Hz · ${numChannels}ch`, 'done');
+
+  // Calcola quanti sample per chunk in base al bitrate e chunkSizeBytes
+  // chunkSizeBytes ≈ bitrateKbps * 1000/8 * secondiPerChunk
+  // → secondiPerChunk = chunkSizeBytes / (bitrateKbps * 125)
+  const secondsPerChunk = Math.floor(chunkSizeBytes / (bitrateKbps * 125));
+  const samplesPerChunk = secondsPerChunk * sampleRate;
+  const numChunks = Math.ceil(totalSamples / samplesPerChunk);
+
+  onStep(`Codifica MP3 in ${numChunks} parti…`, 'active', 'encode-step');
+
+  const baseName = file.name.replace(/\.[^.]+$/, '');
+  const resultChunks = [];
+
+  for (let c = 0; c < numChunks; c++) {
+    const startSample = c * samplesPerChunk;
+    const endSample   = Math.min(startSample + samplesPerChunk, totalSamples);
+
+    const mp3enc   = new lame.Mp3Encoder(numChannels, sampleRate, bitrateKbps);
+    const BLOCK    = 1152;
+    const mp3Parts = [];
+
+    for (let i = startSample; i < endSample; i += BLOCK) {
+      const end   = Math.min(i + BLOCK, endSample);
+      const left  = pcmToInt16(leftChannel,  i, end);
+      const right = pcmToInt16(rightChannel, i, end);
+      const chunk = numChannels === 2
+        ? mp3enc.encodeBuffer(left, right)
+        : mp3enc.encodeBuffer(left);
+      if (chunk.length > 0) mp3Parts.push(chunk);
+      if ((i - startSample) % (BLOCK * 300) === 0) {
+        const totalEncoded = startSample + (i - startSample);
+        const pct = Math.round(totalEncoded / totalSamples * 100);
+        $('prog-label').textContent = `Codifica MP3: ${pct}%`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    const flush = mp3enc.flush();
+    if (flush.length > 0) mp3Parts.push(flush);
+
+    const chunkBytes = mp3Parts.reduce((s, p) => s + p.length, 0);
+    const mp3Data = new Uint8Array(chunkBytes);
+    let off = 0;
+    for (const p of mp3Parts) { mp3Data.set(p, off); off += p.length; }
+
+    resultChunks.push(new File([mp3Data], `${baseName}_part${String(c+1).padStart(3,'0')}.mp3`, { type: 'audio/mpeg' }));
+    onStep(`Parte ${c+1}/${numChunks}: ${formatBytes(chunkBytes)}`, 'done');
+  }
+
+  markStep('encode-step', 'done');
+  onStep(`Totale: ${numChunks} parti MP3 pronte`, 'done');
+  return resultChunks;
+}
+
+function pcmToInt16(floatArr, start, end) {
+  const out = new Int16Array(end - start);
+  for (let i = start; i < end; i++) {
+    const s = Math.max(-1, Math.min(1, floatArr[i]));
+    out[i - start] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+// ── TRANSCRIBE ONE FILE ───────────────────────────────────────────────
+async function transcribeFile(qItem) {
+  const groqKey     = getGroqKey();
+  const modelOpt    = $('opt-model').value;
+  const lang        = $('opt-lang').value;
+  const fmt         = $('opt-fmt').value;
+  const bitrateKbps = parseInt($('opt-bitrate').value);
+  const CHUNK_SIZE  = 24 * 1024 * 1024;
+
+  // Resolve provider + model
+  let apiUrl, apiKey, model;
+  if (modelOpt === 'groq-turbo') {
+    apiUrl = 'https://api.groq.com/openai/v1/audio/transcriptions';
+    apiKey = groqKey;
+    model  = 'whisper-large-v3-turbo';
+  } else if (modelOpt === 'groq-v3') {
+    apiUrl = 'https://api.groq.com/openai/v1/audio/transcriptions';
+    apiKey = groqKey;
+    model  = 'whisper-large-v3';
+  } else {
+    // OpenAI fallback
+    apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
+    apiKey = groqKey; // campo riusato — l'utente deve inserire chiave OAI qui
+    model  = 'whisper-1';
+  }
+
+  addStep(`── ${qItem.name}`, 'done');
+
+  const chunks = await convertToMp3Chunks(
+    qItem.file, bitrateKbps, CHUNK_SIZE,
+    (text, state, id) => addStep(text, state, id)
+  );
+
+  const total = chunks.length;
+  const parts = [];
+  const provider = modelOpt.startsWith('groq') ? 'Groq' : 'OpenAI';
+  addStep(`${provider}: ${total} parte${total>1?'i':''}`, 'done');
+
+  for (let i = 0; i < total; i++) {
+    const stepId = `api-step-${Date.now()}-${i}`;
+    addStep(`Trascrizione parte ${i+1}/${total} (${formatBytes(chunks[i].size)})`, 'active', stepId);
+
+    const form = new FormData();
+    form.append('file', chunks[i], chunks[i].name);
+    form.append('model', model);
+    form.append('response_format', fmt === 'srt' ? 'srt' : 'text');
+    if (lang) form.append('language', lang);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000);
+    let res;
+    try {
+      res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: controller.signal
+      });
+    } catch(fetchErr) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') throw new Error('Timeout (3 min): prova con qualità MP3 64kbps o un file più corto.');
+      throw new Error('Errore di rete: ' + fetchErr.message);
+    }
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const errBody = await res.text().catch(()=>'');
+      let msg = res.statusText;
+      try { msg = JSON.parse(errBody).error?.message || msg; } catch {}
+      throw new Error(`Errore API (${res.status}): ${msg}`);
+    }
+    parts.push(await res.text());
+    markStep(stepId, 'done');
+  }
+
+  return parts.join('\n\n');
+}
+
+// ── GENERATE VERBALE (Anthropic Claude) ──────────────────────────────
+async function generateVerbale(transcriptionText, anthropicKey) {
+  const stepId = `verbale-step-${Date.now()}`;
+  addStep('Generazione verbale con Claude…', 'active', stepId);
+
+  const prompt = `# RUOLO E OBIETTIVO
+Sei un assistente esecutivo senior incaricato di redigere verbali, report e riepiloghi strutturati a partire da trascrizioni audio grezze. Il tuo compito è sintetizzare e organizzare le informazioni in modo chiaro, professionale ed estremamente fedele al testo fornito.
+
+---
+
+# REGOLE FONDAMENTALI ANTI-ALLUCINAZIONE (VINCOLANTI)
+1. **Zero inventiva / Fedeltà assoluta:** Estrai e sintetizza SOLO ed ESCLUSIVAMENTE ciò che è esplicitamente presente nella trascrizione. Non dedurre, non presumere, non completare i passaggi logici mancanti con tue congetture.
+2. **Owner e Responsabili:** Assegna un'attività a una persona solo se il suo nome/ruolo è chiaramente collegato a quell'azione nel testo. Altrimenti, indica "Non specificato".
+3. **Scadenze e Tempistiche:** Riporta date o scadenze SOLO se esplicitamente pronunciate (es. "entro venerdì", "per il 15 novembre"). Non inventare roadmap o milestone non menzionate. Se non ci sono scadenze, scrivi "Nessuna data specificata".
+4. **Dati ambigui o non conclusi:** Se un punto è stato solo accennato, interrotto o non ha portato a una decisione, classificalo esplicitamente sotto "Punti aperti / Questioni irrisolte". Non inventare la risoluzione.
+
+---
+
+# STRUTTURA DEL REPORT
+
+Analizza la trascrizione e compila le seguenti sezioni. Adatta il tono in base alla natura dell'audio (es. riunione formale, 1:1, sessione formativa/corso, appunto vocale/briefing).
+
+## 1. Scheda Informativa Sintetica
+- **Tipologia rilevata:** [Riunione di team / 1:1 / Corso o Formazione / Nota vocale & Briefing / Altro]
+- **Partecipanti / Voci identificate:** [Nomi o etichette presenti nel testo]
+- **Argomento Principale:** [1 riga di sintesi dell'obiettivo dell'audio]
+
+## 2. Sintesi Esecutiva (Executive Summary)
+- Un paragrafo di massimo 4-6 righe che riassume il succo dell'incontro o del ragionamento.
+
+## 3. Punti Chiave e Tematiche Discusse
+- Suddividi per macro-argomenti o concetti affrontati.
+- Usa punti elenco chiari evidenziando fatti, argomentazioni e conclusioni effettive.
+*(Se si tratta di un corso/formazione: organizza per "Concetti / Best Practice apprese")*
+*(Se si tratta di una nota vocale/brainstorming: organizza per "Idee / Spunti / Linee guida")*
+
+## 4. Decisioni Prese
+- Elenco puntato di tutte le scelte definitive o accordi raggiunti.
+- Se nessuna decisione è stata deliberata, inserisci: *"Nessuna decisione formale presa"*.
+
+## 5. Piano d'Azione (Action Items & Task)
+*(Se non è emersa alcuna attività pratica, scrivi: "Nessun task emerso")*
+Organizza le attività esclusivamente se esplicitate, usando questo schema:
+- **Cosa fare:** [Descrizione dell'azione]
+  - **Responsabile (Owner):** [Nome oppure "Non assegnato"]
+  - **Scadenza (Deadline):** [Data/termine oppure "Non definita"]
+  - **Dettagli / Contesto:** [Eventuali requisiti menzionati]
+
+## 6. Punti Aperti, Dubbi o Prossimi Passi Rinviati
+- Domande rimaste senza risposta, punti rimandati ad altri incontri o blocchi segnalati dai partecipanti.
+
+---
+
+TRASCRIZIONE:
+${transcriptionText}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: controller.signal
+    });
+  } catch(fetchErr) {
+    clearTimeout(timeout);
+    markStep(stepId, 'warn');
+    if (fetchErr.name === 'AbortError') throw new Error('Timeout generazione verbale (2 min).');
+    throw new Error('Errore di rete (verbale): ' + fetchErr.message);
+  }
+  clearTimeout(timeout);
+  if (!res.ok) {
+    const errBody = await res.text().catch(()=>'');
+    let msg = res.statusText;
+    try { msg = JSON.parse(errBody).error?.message || msg; } catch {}
+    markStep(stepId, 'warn');
+    throw new Error(`Errore API verbale (${res.status}): ${msg}`);
+  }
+  const data = await res.json();
+  const verbale = data.content?.[0]?.text || '';
+  markStep(stepId, 'done');
+  return verbale;
+}
+
+// ── QUEUE RUNNER ──────────────────────────────────────────────────────
+async function startQueue() {
+  const key = getGroqKey();
+  if (!key) { showError('Inserisci la tua API key Groq (gsk_…).'); return; }
+  const anthropicKey = getAnthropicKey();
+  if (!anthropicKey) { showError('Inserisci la tua API key Anthropic (sk-ant-…) per generare il verbale.'); return; }
+  const pending = fileQueue.filter(q => q.status === 'pending');
+  if (!pending.length) { showError('Nessun file in coda.'); return; }
+
+  hideError(); hideInfo();
+  $('result-wrap').classList.remove('show');
+  $('progress-wrap').classList.add('show');
+  $('prog-steps').innerHTML = '';
+  $('btn-go').disabled = true;
+  batchResults = [];
+
+  const total = pending.length;
+
+  for (let i = 0; i < total; i++) {
+    const q = pending[i];
+    q.status = 'active';
+    renderQueue();
+    setProgress(Math.round(i / total * 100), 100, `File ${i+1}/${total}: ${q.name}`);
+
+    try {
+      q.result  = await transcribeFile(q);
+      q.status  = 'done';
+      // Generate verbale automatically via Anthropic Claude
+      let verbale = '';
+      try {
+        verbale = await generateVerbale(q.result, anthropicKey);
+      } catch(vErr) {
+        addStep(`⚠ Verbale non generato: ${vErr.message}`, 'warn');
+        console.warn('Verbale error:', vErr);
+      }
+      q.verbale = verbale;
+      batchResults.push({ name: q.name, text: q.result, verbale });
+      saveToHistory(q.name, q.result);
+    } catch(err) {
+      q.status = 'error';
+      q.error  = err.message;
+      addStep(`✕ Errore: ${err.message}`, 'warn');
+      console.error(err);
+    }
+    renderQueue();
+  }
+
+  setProgress(100, 100, 'Completato ✓');
+  addStep(`Completato: ${batchResults.length}/${total} file`, 'done');
+  renderHistory();
+
+  // ── RAGGRUPPAMENTO PER PREFISSO (_p1, _p2, … oppure _parte1, _parte2, …) ──
+  // Es: "riunione_ABC_p1.wav" + "riunione_ABC_p2.wav" → gruppo "riunione_ABC"
+  function getGroupKey(name) {
+    const base = name.replace(/\.[^.]+$/, ''); // rimuove estensione
+    // pattern: _p<n> oppure _parte<n> (case-insensitive) alla fine
+    // pattern 1: _p<n> oppure _parte<n> → "riunione_ABC_p2"
+    // pattern 2: numero finale dopo spazio → "riunione commerciale 10 novembre 2"
+    const m = base.match(/^(.+?)(?:_(?:p|parte)\d+|\s+\d+)$/i);
+    return m ? m[1].trim() : base; // se non matcha → chiave = nome file intero
+  }
+
+  const groups = {};
+  for (const r of batchResults) {
+    const key = getGroupKey(r.name);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+
+  // Per ogni gruppo con più file: concatena trascrizioni e rigenera verbale unificato
+  const mergedResults = [];
+  const groupKeys = Object.keys(groups);
+  for (const key of groupKeys) {
+    const grp = groups[key];
+    if (grp.length === 1) {
+      mergedResults.push(grp[0]);
+    } else {
+      // Concatena trascrizioni nell'ordine in cui i file sono stati processati
+      const mergedText = grp.map((r, i) =>
+        `[Parte ${i+1} — ${r.name}]\n\n${r.text}`
+      ).join('\n\n' + '─'.repeat(40) + '\n\n');
+
+      addStep(`Unificazione gruppo "${key}" (${grp.length} parti)…`, 'active');
+      let mergedVerbale = '';
+      try {
+        mergedVerbale = await generateVerbale(mergedText, anthropicKey);
+      } catch(vErr) {
+        addStep(`⚠ Verbale unificato non generato per "${key}": ${vErr.message}`, 'warn');
+      }
+      mergedResults.push({
+        name: key + '_unificato',
+        text: mergedText,
+        verbale: mergedVerbale,
+        isMerged: true,
+        partCount: grp.length
+      });
+    }
+  }
+
+  if (mergedResults.length === 1) {
+    resultText  = mergedResults[0].text;
+    resultFname = mergedResults[0].name.replace(/\.[^.]+$/, '') + '_trascrizione.txt';
+    showResult(resultText, mergedResults[0].name, resultText.length, mergedResults[0].verbale);
+  } else {
+    showBatchResult(mergedResults);
+  }
+
+  $('btn-go').disabled = false;
+}
+
+// ── BATCH RESULT ──────────────────────────────────────────────────────
+function showBatchResult(results) {
+  const totalChars = results.reduce((s, r) => s + r.text.length, 0);
+  const totalWords = results.reduce((s, r) => s + countWords(r.text), 0);
+  const hasVerbali = results.some(r => r.verbale);
+
+  $('result-title').textContent = `${results.length} file trascritti`;
+  $('result-meta').textContent  = `${totalChars.toLocaleString('it-IT')} caratteri · ${totalWords.toLocaleString('it-IT')} parole in totale`;
+
+  // Build tabbed body: tab per file + tab trascrizioni unificate
+  let tabButtons = '';
+  let tabPanels  = '';
+  results.forEach((r, i) => {
+    const baseName = r.name.replace(/\.[^.]+$/, '');
+    const isFirst  = i === 0;
+    const mergedBadge = r.isMerged ? ` 🔗${r.partCount}` : '';
+    tabButtons += `<button class="rtab${isFirst?' active':''}" onclick="switchTab(this,'rtab-${i}')">${r.verbale ? '📄' : '📝'} ${baseName.length > 20 ? baseName.slice(0,18)+'…' : baseName}${mergedBadge}</button>`;
+    let panelContent = '';
+    if (r.verbale) {
+      panelContent = `
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="rtab active" onclick="switchSubTab(this,'rsub-v-${i}','rsub-t-${i}')">📄 Verbale</button>
+          <button class="rtab" onclick="switchSubTab(this,'rsub-t-${i}','rsub-v-${i}')">📝 Trascrizione</button>
+        </div>
+        <div id="rsub-v-${i}" style="white-space:pre-wrap">${escHtml(r.verbale)}</div>
+        <div id="rsub-t-${i}" class="hidden" style="white-space:pre-wrap">${escHtml(r.text)}</div>
+      `;
+    } else {
+      panelContent = `<div style="white-space:pre-wrap">${escHtml(r.text)}</div>`;
+    }
+    tabPanels += `<div id="rtab-${i}" class="rtab-panel${isFirst?'':' hidden'}">${panelContent}</div>`;
+  });
+  $('result-body').innerHTML = `<div class="result-tabs">${tabButtons}</div>${tabPanels}`;
+
+  // Prepare unified text for copy/download
+  resultText  = results.map(r => `=== ${r.name} ===\n\n${r.text}`).join('\n\n' + '─'.repeat(60) + '\n\n');
+  resultFname = `trascrizioni_${new Date().toISOString().slice(0,10)}.txt`;
+
+  // Update action buttons
+  $('result-actions').innerHTML = `
+    <button class="btn-action" onclick="copyResult()">📋 Copia trascrizioni</button>
+    <button class="btn-action primary" onclick="downloadResult()">↓ Scarica .txt unificato</button>
+    <button class="btn-action success" onclick="downloadZip()">📦 Scarica ZIP${hasVerbali ? ' (+ verbali)' : ''}</button>
+    <button class="btn-action drive" onclick="saveBatchToDrive(this)">☁️ Salva tutto su Drive</button>
+  `;
+
+  $('result-wrap').classList.add('show');
+  $('result-wrap').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function switchSubTab(btn, showId, hideId) {
+  btn.closest('div').querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  $(showId).classList.remove('hidden');
+  $(hideId).classList.add('hidden');
+}
+
+async function downloadZip() {
+  if (!batchResults.length) return;
+
+  // Load JSZip
+  let JSZip;
+  try {
+    JSZip = await loadJSZip();
+  } catch(e) {
+    showError('Impossibile caricare JSZip. Controlla la connessione internet.');
+    return;
+  }
+
+  const zip = new JSZip();
+  for (const r of batchResults) {
+    const baseName = r.name.replace(/\.[^.]+$/, '');
+    zip.file(baseName + '_trascrizione.txt', r.text);
+    if (r.verbale) {
+      zip.file(baseName + '_verbale.txt', r.verbale);
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `trascrizioni_${new Date().toISOString().slice(0,10)}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ── PROGRESS UI ───────────────────────────────────────────────────────
+function setProgress(done, total, label) {
+  const pct = total ? Math.round(done/total*100) : 0;
+  $('prog-fill').style.width = pct + '%';
+  $('prog-pct').textContent   = pct + '%';
+  $('prog-label').textContent = label;
+}
+function addStep(text, state, id) {
+  if (id) {
+    const existing = $(id);
+    if (existing) { existing.textContent = text; existing.className = `prog-step ${state}`; return; }
+  }
+  const div = document.createElement('div');
+  div.className = `prog-step${state?' '+state:''}`;
+  div.textContent = text;
+  if (id) div.id = id;
+  $('prog-steps').appendChild(div);
+  $('prog-steps').scrollTop = 9999;
+}
+function markStep(id, state) {
+  const el = $(id);
+  if (el) el.className = `prog-step ${state}`;
+}
+
+// ── RESULT ────────────────────────────────────────────────────────────
+function showResult(text, fname, chars, verbale) {
+  const baseName = fname.replace(/\.[^.]+$/, '');
+  $('result-title').textContent = baseName;
+  $('result-meta').textContent  = `${chars.toLocaleString('it-IT')} caratteri · ${countWords(text).toLocaleString('it-IT')} parole`;
+
+  // Build HTML content: trascrizione + verbale (if available)
+  let bodyHtml = '';
+  if (verbale) {
+    bodyHtml = `
+      <div class="result-tabs">
+        <button class="rtab active" onclick="switchTab(this,'tab-verbale')">📄 Verbale</button>
+        <button class="rtab" onclick="switchTab(this,'tab-trascrizione')">📝 Trascrizione integrale</button>
+      </div>
+      <div id="tab-verbale" class="rtab-panel" style="white-space:pre-wrap">${escHtml(verbale)}</div>
+      <div id="tab-trascrizione" class="rtab-panel hidden" style="white-space:pre-wrap">${escHtml(text)}</div>
+    `;
+  } else {
+    bodyHtml = `<div style="white-space:pre-wrap">${escHtml(text)}</div>`;
+  }
+  $('result-body').innerHTML = bodyHtml;
+
+  // Store both for copy/download
+  resultText   = text;
+  resultFname  = baseName + '_trascrizione.txt';
+  resultVerbale      = verbale || '';
+  resultVerbaleFname = baseName + '_verbale.txt';
+
+  let actionsHtml = `<button class="btn-action" onclick="copyResult()">📋 Copia trascrizione</button>
+    <button class="btn-action primary" onclick="downloadResult()">↓ Scarica trascrizione</button>`;
+  if (verbale) {
+    actionsHtml += `<button class="btn-action success" onclick="downloadVerbaleStored()">↓ Scarica verbale</button>`;
+  }
+  actionsHtml += `<button class="btn-action drive" onclick="saveSingleToDrive(this)">☁️ Salva su Drive</button>`;
+  $('result-actions').innerHTML = actionsHtml;
+
+  $('result-wrap').classList.add('show');
+  $('result-wrap').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function switchTab(btn, tabId) {
+  // Deactivate all tabs
+  btn.closest('.result-tabs').querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Hide all panels, show selected
+  document.querySelectorAll('.rtab-panel').forEach(p => p.classList.add('hidden'));
+  $(tabId).classList.remove('hidden');
+}
+
+function downloadVerbale(verbaleText, fname) {
+  const blob = new Blob([verbaleText], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function countWords(s) { return s.trim().split(/\s+/).filter(Boolean).length; }
+
+function copyResult() {
+  navigator.clipboard.writeText(resultText).then(()=>{
+    const btn = $('result-actions').querySelector('.btn-action');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiato!';
+    setTimeout(()=>btn.textContent=orig, 2000);
+  }).catch(()=>alert('Seleziona il testo nel riquadro e copia manualmente'));
+}
+
+function downloadResult() {
+  if (!resultText) return;
+  const blob = new Blob([resultText], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = resultFname || 'trascrizione.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function downloadVerbaleStored() {
+  if (!resultVerbale) return;
+  const blob = new Blob([resultVerbale], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = resultVerbaleFname || 'verbale.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ── ERROR / INFO ──────────────────────────────────────────────────────
+function showError(msg) { const e=$('error-box'); e.textContent=msg; e.classList.add('show'); }
+function hideError()    { $('error-box').classList.remove('show'); }
+function showInfo(msg)  { const e=$('info-box'); e.textContent=msg; e.classList.add('show'); }
+function hideInfo()     { $('info-box').classList.remove('show'); }
+
+// ── HISTORY ───────────────────────────────────────────────────────────
+const HIST_KEY = 'tp_transcriptions_v1';
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); } catch { return []; } }
+function saveToHistory(fname, text) {
+  try {
+    const h = loadHistory();
+    h.unshift({ id: Date.now(), fname, text, at: new Date().toISOString() });
+    localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 20)));
+  } catch {}
+}
+function renderHistory() {
+  const h = loadHistory();
+  const wrap = $('hist-wrap');
+  if (!h.length) { wrap.classList.remove('show'); return; }
+  wrap.classList.add('show');
+  $('hist-list').innerHTML = h.map(item => `
+    <div class="hist-item" onclick="loadHistItem(${item.id})">
+      <div class="hist-item-info">
+        <div class="hist-item-name">${escH(item.fname)}</div>
+        <div class="hist-item-meta">${new Date(item.at).toLocaleString('it-IT')}</div>
+        <div class="hist-item-preview">${escH(item.text.slice(0,120))}…</div>
+      </div>
+      <button class="hist-del" onclick="delHistItem(event,${item.id})">✕</button>
+    </div>`).join('');
+}
+function loadHistItem(id) {
+  const item = loadHistory().find(x=>x.id===id);
+  if (!item) return;
+  resultText  = item.text;
+  resultFname = item.fname.replace(/\.[^.]+$/,'')+'_trascrizione.txt';
+  showResult(item.text, item.fname, item.text.length);
+}
+function delHistItem(e, id) {
+  e.stopPropagation();
+  try {
+    const h = loadHistory().filter(x=>x.id!==id);
+    localStorage.setItem(HIST_KEY, JSON.stringify(h));
+  } catch {}
+  renderHistory();
+}
+function clearHistory() {
+  if (!confirm('Eliminare tutte le trascrizioni salvate?')) return;
+  try { localStorage.removeItem(HIST_KEY); } catch {}
+  renderHistory();
+}
+function escH(s) { return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+$('groq-key').addEventListener('input', updateBtn);
+$('anthropic-key').addEventListener('input', updateBtn);
+</script>
+</body>
+</html>
