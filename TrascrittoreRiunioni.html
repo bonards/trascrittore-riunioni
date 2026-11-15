@@ -146,6 +146,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .hist-del:hover{background:var(--danger);color:#fff}
 
 footer{padding:.75rem 1.5rem;background:var(--surface);border-top:1px solid var(--border);font-size:10px;color:var(--faint);font-family:'DM Mono',monospace;text-align:center}
+
+/* ── REGISTRAZIONE DIRETTA ── */
+.rec-card{background:var(--surface);border:2px solid var(--border-med);border-radius:var(--radius);padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.75rem}
+.rec-card.recording{border-color:#C0390E;background:#FEF8F7}
+.rec-top{display:flex;align-items:center;justify-content:space-between}
+.rec-label{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.rec-timer{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--muted);letter-spacing:.05em}
+.rec-card.recording .rec-timer{color:#C0390E}
+.rec-wave{display:flex;align-items:flex-end;gap:3px;height:36px}
+.rec-wave span{width:5px;background:var(--surface2);border-radius:3px;height:6px;transition:height .15s}
+.rec-card.recording .rec-wave span{background:#C0390E;animation:wave 1s ease-in-out infinite}
+.rec-card.recording .rec-wave span:nth-child(1){animation-delay:0s}
+.rec-card.recording .rec-wave span:nth-child(2){animation-delay:.1s}
+.rec-card.recording .rec-wave span:nth-child(3){animation-delay:.2s}
+.rec-card.recording .rec-wave span:nth-child(4){animation-delay:.3s}
+.rec-card.recording .rec-wave span:nth-child(5){animation-delay:.4s}
+.rec-card.recording .rec-wave span:nth-child(6){animation-delay:.3s}
+.rec-card.recording .rec-wave span:nth-child(7){animation-delay:.2s}
+.rec-card.recording .rec-wave span:nth-child(8){animation-delay:.1s}
+.rec-card.recording .rec-wave span:nth-child(9){animation-delay:.05s}
+.rec-card.recording .rec-wave span:nth-child(10){animation-delay:0s}
+@keyframes wave{0%,100%{height:6px}50%{height:28px}}
+.rec-btns{display:flex;gap:.5rem;flex-wrap:wrap}
+.btn-rec{flex:1;padding:12px 16px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;min-width:160px}
+.btn-rec:hover{opacity:.88}
+.btn-rec.stop{background:#C0390E}
+.rec-hint{font-size:11px;color:var(--muted);text-align:center}
+.sep-or{display:flex;align-items:center;gap:.75rem;color:var(--faint);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.sep-or::before,.sep-or::after{content:'';flex:1;height:1px;background:var(--border)}
 </style>
 </head>
 <body>
@@ -172,10 +201,29 @@ footer{padding:.75rem 1.5rem;background:var(--surface);border-top:1px solid var(
 
 <div class="main">
 
+  <!-- REGISTRAZIONE DIRETTA (iPhone-friendly) -->
+  <div class="rec-card" id="rec-card">
+    <div class="rec-top">
+      <span class="rec-label">🎙️ Registra in diretta</span>
+      <span class="rec-timer" id="rec-timer">00:00</span>
+    </div>
+    <div class="rec-wave" id="rec-wave">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="rec-btns">
+      <button class="btn-rec" id="btn-rec-start" onclick="startRecording()">⏺ Avvia registrazione</button>
+      <button class="btn-rec stop" id="btn-rec-stop" onclick="stopAndTranscribe()" style="display:none">⏹ Ferma e trascrivi</button>
+    </div>
+    <div class="rec-hint" id="rec-hint">Premi "Avvia registrazione" per iniziare. Al termine premi "Ferma e trascrivi".</div>
+  </div>
+
+  <div class="sep-or"><span>oppure carica un file</span></div>
+
   <div class="drop-zone" id="drop-zone">
     <input type="file" id="file-input" accept="audio/*,video/*,.wav,.mp3,.mp4,.m4a,.webm,.ogg,.flac,.aac,.zip" multiple onchange="onFilesSelected(this.files)">
-    <span class="drop-ico">🎙️</span>
-    <div class="drop-title">Trascina qui i file audio</div>
+    <span class="drop-ico">📂</span>
+    <div class="drop-title">Carica file audio</div>
     <div class="drop-sub">WAV, MP3, M4A, MP4, OGG, FLAC, AAC · qualsiasi durata · convertito automaticamente</div>
     <div class="drop-sub2">Puoi selezionare più file contemporaneamente, o caricare uno ZIP con tutti i file audio</div>
     <div class="drop-file-info" id="file-info" style="display:none"></div>
@@ -1232,6 +1280,110 @@ function escH(s) { return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 
 $('groq-key').addEventListener('input', updateBtn);
 $('anthropic-key').addEventListener('input', updateBtn);
+
+// ── REGISTRAZIONE DIRETTA ─────────────────────────────────────────────
+let mediaRecorder = null;
+let recChunks     = [];
+let recStream     = null;
+let recTimerInt   = null;
+let recSeconds    = 0;
+
+function formatRecTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2,'0');
+  const sec = (s % 60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+async function startRecording() {
+  const groqKey = getGroqKey();
+  if (!groqKey) {
+    showError('Inserisci prima la tua API key Groq per poter trascrivere.');
+    return;
+  }
+
+  // Richiede accesso al microfono
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    showError('Microfono non accessibile. Su iPhone: Impostazioni → Safari → Microfono → Consenti.');
+    return;
+  }
+
+  recChunks  = [];
+  recSeconds = 0;
+  $('rec-timer').textContent = '00:00';
+  $('rec-hint').textContent  = 'Registrazione in corso… Parla chiaramente.';
+  $('rec-card').classList.add('recording');
+  $('btn-rec-start').style.display = 'none';
+  $('btn-rec-stop').style.display  = '';
+
+  // Su Safari/iPhone il formato supportato è audio/mp4; altrove audio/webm
+  const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
+                   MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
+                   MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+
+  const opts = mimeType ? { mimeType } : {};
+  try {
+    mediaRecorder = new MediaRecorder(recStream, opts);
+  } catch(e) {
+    mediaRecorder = new MediaRecorder(recStream);
+  }
+
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) recChunks.push(e.data); };
+  mediaRecorder.start(1000); // 1 s chunks
+
+  recTimerInt = setInterval(() => {
+    recSeconds++;
+    $('rec-timer').textContent = formatRecTime(recSeconds);
+  }, 1000);
+}
+
+async function stopAndTranscribe() {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+
+  clearInterval(recTimerInt);
+  $('rec-hint').textContent = '⏳ Elaborazione audio…';
+
+  // Ferma la registrazione
+  await new Promise(resolve => {
+    mediaRecorder.onstop = resolve;
+    mediaRecorder.stop();
+  });
+
+  // Ferma il microfono
+  if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
+
+  $('rec-card').classList.remove('recording');
+  $('btn-rec-start').style.display = '';
+  $('btn-rec-stop').style.display  = 'none';
+
+  if (!recChunks.length) {
+    showError('Nessun audio registrato.');
+    $('rec-hint').textContent = 'Premi "Avvia registrazione" per iniziare.';
+    return;
+  }
+
+  // Crea il file audio
+  const mimeType = recChunks[0].type || 'audio/webm';
+  const ext      = mimeType.includes('mp4') ? 'm4a' : 'webm';
+  const blob     = new Blob(recChunks, { type: mimeType });
+  const duration = formatRecTime(recSeconds);
+  const fname    = `registrazione_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.${ext}`;
+  const file     = new File([blob], fname, { type: mimeType });
+
+  recChunks  = [];
+  recSeconds = 0;
+  $('rec-timer').textContent = '00:00';
+  $('rec-hint').textContent  = `✅ Registrazione di ${duration} pronta. Avvio trascrizione…`;
+
+  // Aggiunge alla coda e avvia direttamente
+  addToQueue(file, fname);
+  renderQueue();
+  updateBtn();
+
+  // Avvia automaticamente la trascrizione
+  setTimeout(() => startQueue(), 300);
+}
 </script>
 </body>
 </html>
